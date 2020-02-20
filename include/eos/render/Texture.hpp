@@ -98,7 +98,7 @@ inline Texture create_mipmapped_texture(cv::Mat image, unsigned int mipmapsNum =
         image.convertTo(image, CV_8UC4); // Most often, the input img is CV_8UC3. Img is BGR. Add an alpha
                                          // channel. TODO: Actually I think this doesn't do anything. Below
                                          // line adds the 4th channel...
-        cv::cvtColor(image, image, CV_BGR2BGRA);
+        cv::cvtColor(image, image, cv::COLOR_BGR2BGRA);
     }
 
     int currWidth = image.cols;

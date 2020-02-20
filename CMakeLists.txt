@@ -16,7 +16,8 @@ set(CMAKE_CXX_EXTENSIONS OFF) # This makes CMake use -std=c++xx instead of -std=
 set(EOS_CXX_COMPILE_FEATURES cxx_defaulted_functions cxx_generalized_initializers cxx_generic_lambdas cxx_lambdas cxx_nonstatic_member_init cxx_range_for cxx_right_angle_brackets cxx_strong_enums)
 
 
-set(CMAKE_TOOLCHAIN_FILE "D:/repo/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Path for vcpkg.cmake")
+#set(CMAKE_TOOLCHAIN_FILE "D:/repo/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Path for vcpkg.cmake")
+set(CMAKE_TOOLCHAIN_FILE "C:/Users/ShahRukh/Software/vcpkg/scripts/buildsystems/vcpkg.cmake")
 if(CMAKE_TOOLCHAIN_FILE)
     include(${CMAKE_TOOLCHAIN_FILE})
 endif(CMAKE_TOOLCHAIN_FILE)

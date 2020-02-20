@@ -31,6 +31,10 @@
 
 #include "eos/cz/io.hpp"
 
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/quaternion.hpp"
+#include "glm/gtx/transform.hpp"
+
 #include "Eigen/Core"
 
 #include "boost/filesystem.hpp"
@@ -43,6 +47,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <fstream>
 
 using namespace eos;
 namespace po = boost::program_options;
@@ -65,6 +70,24 @@ using std::vector;
  * 68 ibug landmarks are loaded from the .pts file and converted
  * to vertex indices using the LandmarkMapper.
  */
+
+inline Eigen::Matrix<float, 4, 4> to_eigen(const glm::mat4x4& glm_matrix)
+{
+    // glm stores its matrices in col-major order in memory, Eigen too.
+    // using MatrixXf4x4 = Eigen::Matrix<float, 4, 4>;
+    // Eigen::Map<MatrixXf4x4> eigen_map(&glm_matrix[0][0]); // doesn't work, why do we get a const*?
+    Eigen::Matrix<float, 4, 4> eigen_matrix;
+    for (int r = 0; r < 4; ++r)
+    {
+        for (int c = 0; c < 4; ++c)
+        {
+            eigen_matrix(r, c) = glm_matrix[c][r]; // Not checked, but should be correct?
+        }
+    }
+    return eigen_matrix;
+};
+
+
 int main(int argc, char* argv[])
 {
     string modelfile, isomapfile, imagefile, landmarksfile, mappingsfile, contourfile, edgetopologyfile,
@@ -268,8 +291,18 @@ int main(int argc, char* argv[])
 	}
 
     //// The 3D head pose can be recovered as follows:
-    //float yaw_angle = glm::degrees(glm::yaw(rendering_params.get_rotation()));
+    float yaw_angle = glm::degrees(glm::yaw(rendering_params.get_rotation()));
+    float pitch_angle = glm::degrees(glm::pitch(rendering_params.get_rotation()));
+    float roll_angle = glm::degrees(glm::roll(rendering_params.get_rotation())); 
     //// and similarly for pitch and roll.
+    std::ofstream headpose_f (outputbasename + ".headpose.txt");
+    if (headpose_f.is_open()){
+        headpose_f << yaw_angle << ",";
+        headpose_f << pitch_angle << ",";
+        headpose_f << roll_angle;
+        headpose_f.close();
+    }
+
 
 	Eigen::Matrix<float, 3, 4> affine_from_ortho = fitting::get_3x4_affine_camera_matrix(rendering_params, image.cols, image.rows);
 	const auto model_view_matrix = eos::fitting::to_eigen(rendering_params.get_modelview());
@@ -304,13 +337,50 @@ int main(int argc, char* argv[])
 		// And save the isomap:
 		outputfile = outputbasename + ".isomap.png";
 		cv::imwrite(outputfile.string(), core::to_mat(isomap_rgb));
+	}                                                                  
+    int width = image.cols;
+    int height = image.rows;
+
+    using Eigen::Matrix4f;
+    glm::vec4 viewport(0, height, width, -height);
+    Eigen::Matrix4f viewport_mat;
+    viewport_mat << viewport[2] / 2.0f, 0.0f, 0.0f, viewport[2] / 2.0f + viewport[0],
+                    0.0f,               viewport[3] / 2.0f, 0.0f, viewport[3] / 2.0f + viewport[1],
+                    0.0f,               0.0f,               1.0f, 0.0f,
+                    0.0f,               0.0f,               0.0f, 1.0f;
+
+
+    const auto ortho_projection = to_eigen(rendering_params.get_projection());
+    Matrix4f vp_ortho_e = viewport_mat * ortho_projection;
+    // glm::mat4x4 vp_ortho = glm::mat4_cast(vp_ortho_e);
+    // CZ: rescale vp_ortho_e
+	for (int y = 0; y < 2; ++y) {
+		for (int x = 0; x < 4; ++x) {
+			vp_ortho_e(y, x) *= landmark_scale;
+		}
 	}
+
 
 	// save modelview matrix
 	outputfile = outputbasename + ".modelview.txt";
 	cz::io::write_glm4x4_to_file(outputfile.string(), rendering_params.get_modelview());
 
-	// save full projection matrix
+    // save projection matrix
+	outputfile = outputbasename + ".projection.txt";
+	cz::io::write_glm4x4_to_file(outputfile.string(), rendering_params.get_projection()); 
+
+    // save projection matrix
+	outputfile = outputbasename + ".mtNDC.txt";
+	cz::io::write_glm4x4_to_file(outputfile.string(), rendering_params.get_projection()*rendering_params.get_modelview());  
+
+    // save viewport*projection matrix
+	outputfile = outputbasename + ".vp_projection.txt";
+	std::ofstream outFile_vp;
+	outFile_vp.open(outputfile.string());
+    outFile_vp << vp_ortho_e << std::endl;
+	outFile_vp.close(); 
+	
+    // save full projection matrix
 	outputfile = outputbasename + ".affine_from_ortho.txt";
 	std::ofstream outFile;
 	outFile.open(outputfile.string());
